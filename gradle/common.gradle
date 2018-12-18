@@ -10,7 +10,6 @@ sourceSets {
     }
 }
 
-
 compileKotlinCommon {
     kotlinOptions.freeCompilerArgs += [ experimentalAnnotations ]
 }
