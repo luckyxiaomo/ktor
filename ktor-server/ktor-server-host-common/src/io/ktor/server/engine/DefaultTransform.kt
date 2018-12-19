@@ -4,7 +4,6 @@ import io.ktor.application.*
 import io.ktor.util.cio.*
 import io.ktor.http.content.*
 import io.ktor.http.*
-import io.ktor.http.cio.*
 import io.ktor.util.pipeline.*
 import io.ktor.request.*
 import io.ktor.response.*
@@ -75,7 +74,12 @@ private fun PipelineContext<*, ApplicationCall>.multiPartData(rc: ByteReadChanne
             ?: throw IllegalStateException("Content-Type header is required for multipart processing")
 
     val contentLength = call.request.header(HttpHeaders.ContentLength)?.toLong()
-    return CIOMultipartDataBase(coroutineContext + Dispatchers.Unconfined, rc, contentType, contentLength)
+    return CIOMultipartDataBase(
+        coroutineContext + Dispatchers.Unconfined,
+        rc,
+        contentType,
+        contentLength
+    )
 }
 
 private suspend fun ByteReadChannel.readText(

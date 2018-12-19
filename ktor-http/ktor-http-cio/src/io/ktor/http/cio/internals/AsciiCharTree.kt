@@ -38,7 +38,7 @@ internal class AsciiCharTree<T : Any>(val root: Node<T>) {
         }
 
         private fun <T : Any> build(resultList: MutableList<Node<T>>, from: List<T>, maxLength: Int, idx: Int, length: (T) -> Int, charAt: (T, Int) -> Char) {
-            from.groupBy { charAt(it, idx) }.forEach { ch, list ->
+            from.groupBy { charAt(it, idx) }.forEach { (ch, list) ->
                 val nextIdx = idx + 1
                 val children = ArrayList<Node<T>>()
                 build(children, list.filter { length(it) > nextIdx }, maxLength, nextIdx, length, charAt)
