@@ -12,5 +12,5 @@ project.ext.jdk8Modules = [
 ]
 
 project.ext.jdk7Modules = [
-    'ktor-network'
+//    'ktor-network'
 ]

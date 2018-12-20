@@ -1,49 +1,11 @@
 package io.ktor.network.sockets
 
 import io.ktor.network.selector.*
-import io.ktor.util.*
 import java.net.*
 import java.nio.channels.*
 
 /**
- * Socket options builder
- */
-class SocketOptions private constructor(private val allOptions: MutableMap<SocketOption<*>, Any?> = HashMap()) {
-    internal constructor() : this(HashMap())
-
-    /**
-     * Copy options
-     */
-    fun copy(): SocketOptions = SocketOptions(allOptions.toMutableMap())
-
-    /**
-     * Get particular socket [option]
-     */
-    operator fun <T> get(option: SocketOption<T>): T = @Suppress("UNCHECKED_CAST") (allOptions[option] as T)
-
-    /**
-     * Set particular socket [option] [value]
-     */
-    operator fun <T> set(option: SocketOption<T>, value: T) {
-        allOptions[option] = value
-    }
-
-    /**
-     * List all socket option values
-     */
-    fun list(): List<Pair<SocketOption<*>, Any?>> = allOptions.entries.map { Pair(it.key, it.value) }
-
-    companion object {
-        /**
-         * Default socket options
-         */
-        @KtorExperimentalAPI
-        val Empty: SocketOptions = SocketOptions()
-    }
-}
-
-/**
- * Represent configurable socket
+ * Represent a configurable socket
  */
 interface Configurable<out T : Configurable<T>> {
     /**
@@ -67,22 +29,25 @@ interface Configurable<out T : Configurable<T>> {
 /**
  * Set TCP_NODELAY socket option to disable the Nagle algorithm.
  */
-fun <T: Configurable<T>> T.tcpNoDelay(): T {
+fun <T : Configurable<T>> T.tcpNoDelay(): T {
     return configure {
-        this[StandardSocketOptions.TCP_NODELAY] = true
+        if (this is SocketOptions.TCPClientSocketOptions) {
+            noDelay = true
+        }
     }
 }
 
 /**
  * Start building a socket
  */
-fun aSocket(selector: SelectorManager): SocketBuilder = SocketBuilder(selector, SocketOptions.Empty)
+fun aSocket(selector: SelectorManager): SocketBuilder = SocketBuilder(selector, SocketOptions.create())
 
 /**
  * Socket builder
  */
 @Suppress("PublicApiImplicitType", "unused")
-class SocketBuilder internal constructor(private val selector: SelectorManager, override var options: SocketOptions) : Configurable<SocketBuilder> {
+class SocketBuilder internal constructor(private val selector: SelectorManager, override var options: SocketOptions) :
+    Configurable<SocketBuilder> {
     /**
      * Build TCP socket
      */
@@ -98,7 +63,10 @@ class SocketBuilder internal constructor(private val selector: SelectorManager, 
  * TCP socket builder
  */
 @Suppress("PublicApiImplicitType")
-class TcpSocketBuilder internal constructor(private val selector: SelectorManager, override var options: SocketOptions) : Configurable<TcpSocketBuilder> {
+class TcpSocketBuilder internal constructor(
+    private val selector: SelectorManager,
+    override var options: SocketOptions
+) : Configurable<TcpSocketBuilder> {
     /**
      * Connect to [hostname] and [port]
      */
@@ -117,7 +85,7 @@ class TcpSocketBuilder internal constructor(private val selector: SelectorManage
             assignOptions(options)
             nonBlocking()
 
-            SocketImpl(this, selector).apply {
+            SocketImpl(this, socket()!!, selector).apply {
                 connect(remoteAddress)
             }
         }
@@ -132,7 +100,7 @@ class TcpSocketBuilder internal constructor(private val selector: SelectorManage
             nonBlocking()
 
             ServerSocketImpl(this, selector).apply {
-                channel.bind(localAddress)
+                channel.socket().bind(localAddress)
             }
         }
     }
@@ -141,7 +109,10 @@ class TcpSocketBuilder internal constructor(private val selector: SelectorManage
 /**
  * UDP socket builder
  */
-class UDPSocketBuilder internal constructor(private val selector: SelectorManager, override var options: SocketOptions) : Configurable<UDPSocketBuilder> {
+class UDPSocketBuilder internal constructor(
+    private val selector: SelectorManager,
+    override var options: SocketOptions
+) : Configurable<UDPSocketBuilder> {
     /**
      * Bind server socket to listen to [localAddress]
      */
@@ -151,7 +122,7 @@ class UDPSocketBuilder internal constructor(private val selector: SelectorManage
             nonBlocking()
 
             DatagramSocketImpl(this, selector).apply {
-                channel.bind(localAddress)
+                channel.socket().bind(localAddress)
             }
         }
     }
@@ -165,17 +136,10 @@ class UDPSocketBuilder internal constructor(private val selector: SelectorManage
             nonBlocking()
 
             DatagramSocketImpl(this, selector).apply {
-                channel.bind(localAddress)
+                channel.socket().bind(localAddress)
                 channel.connect(remoteAddress)
             }
         }
-    }
-}
-
-private fun NetworkChannel.assignOptions(options: SocketOptions) {
-    options.list().forEach { (k, v) ->
-        @Suppress("UNCHECKED_CAST")
-        (setOption(k as SocketOption<Any?>, v))
     }
 }
 
