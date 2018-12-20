@@ -1,3 +1,12 @@
+apply from: rootProject.file('gradle/jdk.gradle')
+
+def jdk = 6
+
+if (project.name in project.ext.jdk8Modules) {
+    jdk = 8
+} else if (project.name in project.ext.jdk7Modules) {
+    jdk = 7
+}
 
 sourceSets {
     main {
@@ -41,8 +50,8 @@ configurations {
     boot
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
@@ -51,10 +60,24 @@ tasks.withType(JavaCompile) {
 dependencies {
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-reflect', version: kotlin_version
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib', version: kotlin_version
-    compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk7', version: kotlin_version
-    compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlin_version
-    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: coroutines_version
-    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: coroutines_version
+
+    compile(group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: coroutines_version)  {
+        exclude(module: 'kotlin-stdlib')
+        exclude(module: 'kotlin-stdlib-jvm')
+    }
+
+    if (jdk > 6) {
+        runtime group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk7', version: kotlin_version
+    }
+    if (jdk > 7) {
+        runtime group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlin_version
+        runtime(group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-jdk8', version: coroutines_version) {
+            exclude(module: 'kotlin-stdlib')
+            exclude(module: 'kotlin-stdlib-jvm')
+            exclude(module: 'kotlin-stdlib-jdk8')
+            exclude(module: 'kotlin-stdlib-jdk7')
+        }
+    }
 
     compile(group: 'org.jetbrains.kotlinx', name: 'kotlinx-io-jvm', version: kotlinx_io_version) {
         exclude(module: 'kotlin-stdlib-jvm')
@@ -62,6 +85,8 @@ dependencies {
 
     compile(group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-io-jvm', version: kotlinx_io_version) {
         exclude(module: 'kotlin-stdlib-jvm')
+        exclude(module: 'kotlinx-coroutines')
+        exclude(module: 'kotlinx-coroutines-jdk8')
     }
 
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
@@ -81,6 +106,14 @@ compileKotlin {
     
     // dump declarations from main JVM module for binary-compatibility-validator
     kotlinOptions.freeCompilerArgs += ["-Xdump-declarations-to=${buildDir}/visibilities.json"]
+
+    if (jdk == 8) {
+        kotlinOptions.jdkHome = System.env.JDK_18
+    } else if (jdk == 7) {
+        kotlinOptions.jdkHome = System.env.JDK_17 ?: System.env.JDK_18
+    } else {
+        kotlinOptions.jdkHome = System.env.JDK_16 ?: System.env.JDK_17 ?: System.env.JDK_18
+    }
 }
 
 compileTestKotlin {
